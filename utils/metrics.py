@@ -11,11 +11,43 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
+from typing import List
+
+from torchvision.ops import box_iou
+
+def calculate_score(preds, gts,iou_th):
+    # preds: N, xyxy, conf
+    # gts: N, xyxy
+    num_tp = 0
+    num_fp = 0
+    num_fn = 0
+    for p, gt in zip(preds, gts):
+        if len(p) and len(gt):
+            confs = p[:,4].argsort()
+            iou_matrix = box_iou(p[:,:4], gt)
+            for i, idx in enumerate(confs):
+                if iou_matrix.shape[1] == 0:
+                    num_fp += len(confs) - i
+                    break
+                if iou_matrix[idx, :].max(0)[0] >= iou_th:
+                    num_tp += 1
+                    idxx = iou_matrix[idx, :].argmax()
+                    iou_matrix = torch.cat((iou_matrix[:,:idxx], iou_matrix[:,idxx+1:]),dim=1)
+                else:
+                    num_fp += 1
+            num_fn += iou_matrix.shape[1]
+        elif len(p) == 0 and len(gt):
+            num_fn += len(gt)
+        elif len(p) and len(gt) == 0:
+            num_fp += len(p)
+            
+    score = 5 * num_tp / (5 * num_tp + 4 * num_fn + num_fp)
+    return score
 
 def fitness(x):
     # Model fitness as a weighted combination of metrics
-    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
-    return (x[:, :4] * w).sum(1)
+    w = [0.0, 0.0, 0.1, 0.9, ]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95, f2]
+    return (x[:, :5] * w).sum(1)
 
 
 def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, save_dir='.', names=(), eps=1e-16):
@@ -71,19 +103,21 @@ def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, save_dir='.', names
 
     # Compute F1 (harmonic mean of precision and recall)
     f1 = 2 * p * r / (p + r + eps)
+    f2 = (1 + 4) * p * r / (4 * p  + r + eps)
     names = [v for k, v in names.items() if k in unique_classes]  # list: only classes that have data
     names = {i: v for i, v in enumerate(names)}  # to dict
     if plot:
         plot_pr_curve(px, py, ap, Path(save_dir) / 'PR_curve.png', names)
         plot_mc_curve(px, f1, Path(save_dir) / 'F1_curve.png', names, ylabel='F1')
+        plot_mc_curve(px, f2, Path(save_dir) / 'F2_curve.png', names, ylabel='F2')
         plot_mc_curve(px, p, Path(save_dir) / 'P_curve.png', names, ylabel='Precision')
         plot_mc_curve(px, r, Path(save_dir) / 'R_curve.png', names, ylabel='Recall')
 
-    i = f1.mean(0).argmax()  # max F1 index
-    p, r, f1 = p[:, i], r[:, i], f1[:, i]
+    i = f2.mean(0).argmax()  # max F2 index
+    p, r, f1, f2 = p[:, i], r[:, i], f1[:, i], f2[:, i]
     tp = (r * nt).round()  # true positives
     fp = (tp / (p + eps) - tp).round()  # false positives
-    return tp, fp, p, r, f1, ap, unique_classes.astype('int32')
+    return tp, fp, p, r, f1, f2, ap, unique_classes.astype('int32')
 
 
 def compute_ap(recall, precision):
