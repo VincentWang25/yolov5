@@ -319,7 +319,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
             # Multi-scale
             if opt.multi_scale:
-                sz = random.randrange(imgsz * 0.5, imgsz * 1.5 + gs) // gs * gs  # size
+                sz = random.randrange(imgsz * 0.7, imgsz * 1.3 + gs) // gs * gs  # size
                 sf = sz / max(imgs.shape[2:])  # scale factor
                 if sf != 1:
                     ns = [math.ceil(x * sf / gs) * gs for x in imgs.shape[2:]]  # new shape (stretched to gs-multiple)
@@ -378,7 +378,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
             # Update best mAP
             # fi = fitness(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
-            fi = final_score # use score
+            fi = final_score if opt.use_f2 else fitness(np.array(results).reshape(1, -1)) # use score
             if fi > best_fitness:
                 best_fitness = fi
             log_vals = list(mloss) + list(results) + lr
@@ -492,6 +492,7 @@ def parse_opt(known=False):
     parser.add_argument('--artifact_alias', type=str, default='latest', help='W&B: Version of dataset artifact to use')
 
     parser.add_argument('--use-clahe', action='store_true')
+    parser.add_argument('--use-f2', action='store_true')
 
     opt = parser.parse_known_args()[0] if known else parser.parse_args()
     return opt

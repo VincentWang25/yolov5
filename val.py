@@ -158,7 +158,7 @@ def run(data,
     model.eval()
     is_coco = isinstance(data.get('val'), str) and data['val'].endswith('coco/val2017.txt')  # COCO dataset
     nc = 1 if single_cls else int(data['nc'])  # number of classes
-    iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
+    iouv = torch.linspace(0.3, 0.8, 11).to(device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
 
     # Dataloader
@@ -282,7 +282,7 @@ def run(data,
     # Print results per class
     if (verbose or (nc < 50 and not training)) and nc > 1 and len(stats):
         for i, c in enumerate(ap_class):
-            LOGGER.info(pf % (names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]))
+            LOGGER.info(pf % (names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i], final_score))
 
     # Print speeds
     t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
