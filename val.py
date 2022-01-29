@@ -173,7 +173,8 @@ def run(data,
     confusion_matrix = ConfusionMatrix(nc=nc)
     names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
     class_map = coco80_to_coco91_class() if is_coco else list(range(1000))
-    s = ('%20s' + '%11s' * 7) % ('Class', 'Images', 'Labels', 'P', 'R', 'mAP@.5', 'mAP@.5:.95', 'score')
+    s = ('%20s' + '%11s' * 11) % ('Class', 'Images', 'Labels', 'P', 'R', 'mAP@.5', 'mAP@.5:.95', 
+                                 'f2', "f2_0.3", "f2_0.35", "f2_0.75", "f2_0.80")
     dt, p, r, f1, mp, mr, map50, map, final_score = [0.0, 0.0, 0.0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
@@ -204,7 +205,7 @@ def run(data,
         lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
         t3 = time_sync()
         
-        out_check = non_max_suppression(out, 0.05, 0.4, multi_label=False, agnostic=False, max_det=50)
+        out_check = non_max_suppression(out, 0.1, 0.4, multi_label=False, agnostic=False, max_det=100)
         for si, pred in enumerate(out_check):        
             labels = targets[targets[:, 0] == si, 1:]
             gts.append(xywh2xyxy(labels[:,1:5]))
@@ -276,8 +277,9 @@ def run(data,
         nt = torch.zeros(1)
 
     # Print results
-    pf = '%20s' + '%11i' * 2 + '%11.3g' * 5  # print format
-    LOGGER.info(pf % ('all', seen, nt.sum(), mp, mr, map50, map, final_score))
+    pf = '%20s' + '%11i' * 2 + '%11.3g' * 9  # print format
+    LOGGER.info(pf % ('all', seen, nt.sum(), mp, mr, map50, map, final_score,
+                      scores[0], scores[1], scores[-2],scores[-1]))
 
     # Print results per class
     if (verbose or (nc < 50 and not training)) and nc > 1 and len(stats):
@@ -329,7 +331,7 @@ def run(data,
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map50, map, final_score, *(loss.cpu() / len(dataloader)).tolist()), maps, t, final_score
+    return (mp, mr, map50, map, final_score, *(loss.cpu() / len(dataloader)).tolist()), maps, t, final_score, scores
 
 
 def parse_opt():
