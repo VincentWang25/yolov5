@@ -392,7 +392,7 @@ class LoadImagesAndLabels(Dataset):
         self.stride = stride
         self.path = path
         self.albumentations = Albumentations() if augment else None
-        self.clahe = cv2.createCLAHE(clipLimit=5, tileGridSize=(14, 14)) if use_clahe else None
+        self.clahe = cv2.createCLAHE(clipLimit=5, tileGridSize=(10, 10)) if use_clahe else None
         
 
         try:

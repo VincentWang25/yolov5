@@ -70,7 +70,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     save_dir, epochs, batch_size, weights, single_cls, evolve, data, cfg, resume, noval, nosave, workers, freeze = \
         Path(opt.save_dir), opt.epochs, opt.batch_size, opt.weights, opt.single_cls, opt.evolve, opt.data, opt.cfg, \
         opt.resume, opt.noval, opt.nosave, opt.workers, opt.freeze
-
+    score_thres = opt.score_thres
     # Directories
     w = save_dir / 'weights'  # weights dir
     (w.parent if evolve else w).mkdir(parents=True, exist_ok=True)  # make dir
@@ -272,7 +272,9 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     # nw = min(nw, (epochs - start_epoch) / 2 * nb)  # limit warmup to < 1/2 of training
     last_opt_step = -1
     maps = np.zeros(nc)  # mAP per class
-    results = (0, 0, 0, 0, 0, 0, 0)  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
+    results = (0, 0, 0, 0, 0, 0, 0, 0)  # P, R, mAP@.5, mAP@.5-.95, score, val_loss(box, obj, cls)
+    final_score = 0
+    scores = [0] * 11
     scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = amp.GradScaler(enabled=cuda)
     stopper = EarlyStopping(patience=opt.patience)
@@ -439,7 +441,8 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                                             verbose=True,
                                             plots=True,
                                             callbacks=callbacks,
-                                            compute_loss=compute_loss)  # val best model with plots
+                                            compute_loss=compute_loss,
+                                            score_thres=score_thres)  # val best model with plots
                     if is_coco:
                         callbacks.run('on_fit_epoch_end', list(mloss) + list(results) + [scores[0], scores[1], scores[-2], scores[-1]] + lr, 
                                       epoch, best_fitness, fi)
@@ -494,7 +497,8 @@ def parse_opt(known=False):
 
     parser.add_argument('--use-clahe', action='store_true')
     parser.add_argument('--use-f2', action='store_true')
-
+    parser.add_argument('--score_thres', type=float, default=0.1)
+    
     opt = parser.parse_known_args()[0] if known else parser.parse_args()
     return opt
 

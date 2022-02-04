@@ -121,6 +121,7 @@ def run(data,
         plots=True,
         callbacks=Callbacks(),
         compute_loss=None,
+        score_thres=0.1,
         ):
     # Initialize/load model and set device
     training = model is not None
@@ -205,7 +206,7 @@ def run(data,
         lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
         t3 = time_sync()
         
-        out_check = non_max_suppression(out, 0.1, 0.4, multi_label=False, agnostic=False, max_det=100)
+        out_check = non_max_suppression(out, score_thres, 0.4, multi_label=False, agnostic=False, max_det=100)
         for si, pred in enumerate(out_check):        
             labels = targets[targets[:, 0] == si, 1:]
             gts.append(xywh2xyxy(labels[:,1:5]))
